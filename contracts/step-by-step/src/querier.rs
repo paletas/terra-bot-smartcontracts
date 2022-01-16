@@ -1,4 +1,4 @@
-use crate::asset::AssetInfo;
+use crate::asset::{ AssetInfo  };
 use cosmwasm_std::{
     to_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, QuerierWrapper,
     QueryRequest, StdResult, Uint128, WasmQuery,

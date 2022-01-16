@@ -196,6 +196,17 @@ impl AssetInfo {
             }
         }
     }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            AssetInfo::Token { contract_addr, .. } => {
+                format!("CustomToken:{}", contract_addr)
+            }
+            AssetInfo::NativeToken { denom, .. } => {
+                format!("NativeToken:{}", denom)
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

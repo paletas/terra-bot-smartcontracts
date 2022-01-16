@@ -2,6 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::Uint128;
+use cw20::Cw20ReceiveMsg;
 
 use crate::asset::{ AssetInfo };
 use crate::operations::StrategyStepOperation;
@@ -14,13 +15,15 @@ pub struct InstantiateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
+    Receive(Cw20ReceiveMsg),
     ExecuteStrategy {
         steps : Vec<StrategyStep>,
         minimum_receive: Uint128,
     },
     /* INTERNAL USE ONLY */
     ExecuteStrategyStep {
-        step : StrategyStep
+        step : StrategyStep,
+        to: String
     },
     /* INTERNAL USE ONLY */
     FinalizeStrategy {
@@ -29,6 +32,15 @@ pub enum ExecuteMsg {
         initial_balance: Uint128,
         minimum_receive: Uint128,
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Cw20HookMsg {
+    ExecuteStrategy {
+        steps : Vec<StrategyStep>,
+        minimum_receive: Uint128
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -60,8 +72,3 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     pub comission: i16,
 }
-
-// We define a custom struct for each query response
-// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-// pub struct CountResponse {    
-// }
