@@ -1,19 +1,17 @@
-use crate::asset::{ AssetInfo  };
+use crate::asset::AssetInfo;
 use cosmwasm_std::{
     to_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, QuerierWrapper,
     QueryRequest, StdResult, Uint128, WasmQuery,
 };
 use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
 
-pub fn query_balance (
+pub fn query_balance(
     querier: &QuerierWrapper,
     account_addr: Addr,
     asset: AssetInfo,
 ) -> StdResult<Uint128> {
     match asset {
-        AssetInfo::NativeToken { denom } => {
-            query_native_balance(querier, account_addr, denom)
-        },
+        AssetInfo::NativeToken { denom } => query_native_balance(querier, account_addr, denom),
         AssetInfo::Token { contract_addr } => {
             query_token_balance(querier, Addr::unchecked(contract_addr), account_addr)
         }

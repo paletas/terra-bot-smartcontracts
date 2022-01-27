@@ -4,8 +4,8 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use step_by_step::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use step_by_step::operations::StrategyStepOperation;
 use step_by_step::msgs::liquidity_pool::LiquidityPoolSwapMsg;
+use step_by_step::operations::StrategyStepOperation;
 use step_by_step::state::State;
 
 fn main() {

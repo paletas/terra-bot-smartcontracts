@@ -1,15 +1,18 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, from_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, StdError, Uint128, Addr, CosmosMsg, WasmMsg };
-use terra_cosmwasm::{TerraMsgWrapper};
+use cosmwasm_std::{
+    from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
+    StdError, StdResult, Uint128, WasmMsg,
+};
 use cw2::set_contract_version;
 use cw20::Cw20ReceiveMsg;
+use terra_cosmwasm::TerraMsgWrapper;
 
+use crate::asset::{Asset, AssetInfo};
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, StrategyStep, ConfigResponse, Cw20HookMsg};
+use crate::msg::{ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, StrategyStep};
+use crate::querier::query_balance;
 use crate::state::{State, STATE};
-use crate::asset::{ Asset, AssetInfo };
-use crate::querier::{query_balance};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "ThyBotIsThick.StepByStep";
@@ -23,12 +26,14 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     if msg.comission < 0 || msg.comission > 100 {
-        return Err(ContractError::Std(StdError::generic_err("comission should be between 0 and 100")));
+        return Err(ContractError::Std(StdError::generic_err(
+            "comission should be between 0 and 100",
+        )));
     }
 
     let state = State {
         owner: info.sender.clone(),
-        comission: msg.comission
+        comission: msg.comission,
     };
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -48,9 +53,25 @@ pub fn execute(
 ) -> StdResult<Response<TerraMsgWrapper>> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, _env, info, msg),
-        ExecuteMsg::ExecuteStrategy { steps, minimum_receive } => execute_strategy(deps, _env, info, steps, minimum_receive),
+        ExecuteMsg::ExecuteStrategy {
+            steps,
+            minimum_receive,
+        } => execute_strategy(deps, _env, info, steps, minimum_receive),
         ExecuteMsg::ExecuteStrategyStep { step, to } => execute_step(deps, _env, info, step, to),
-        ExecuteMsg::FinalizeStrategy { receiver, asset_info, initial_balance, minimum_receive } => finalize_strategy(deps.as_ref(), _env, info, deps.api.addr_validate(receiver.as_str())?, asset_info, initial_balance, minimum_receive),
+        ExecuteMsg::FinalizeStrategy {
+            receiver,
+            asset_info,
+            initial_balance,
+            minimum_receive,
+        } => finalize_strategy(
+            deps.as_ref(),
+            _env,
+            info,
+            deps.api.addr_validate(receiver.as_str())?,
+            asset_info,
+            initial_balance,
+            minimum_receive,
+        ),
     }
 }
 
@@ -61,7 +82,10 @@ pub fn receive_cw20(
     cw20_msg: Cw20ReceiveMsg,
 ) -> StdResult<Response<TerraMsgWrapper>> {
     match from_binary(&cw20_msg.msg)? {
-        Cw20HookMsg::ExecuteStrategy { steps, minimum_receive } => execute_strategy(deps, _env, info, steps, minimum_receive)
+        Cw20HookMsg::ExecuteStrategy {
+            steps,
+            minimum_receive,
+        } => execute_strategy(deps, _env, info, steps, minimum_receive),
     }
 }
 
@@ -69,30 +93,30 @@ fn execute_strategy(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    steps: Vec<StrategyStep>, 
-    minimum_receive: Uint128
+    steps: Vec<StrategyStep>,
+    minimum_receive: Uint128,
 ) -> StdResult<Response<TerraMsgWrapper>> {
     let steps_len = steps.len();
     if steps_len == 0 {
         return Err(StdError::generic_err("must provide steps"));
     }
 
-    let to = info.sender;    
+    let to = info.sender;
     let from_asset_info = steps.first().unwrap().get_from_asset();
     let target_asset_info = steps.last().unwrap().get_to_asset();
 
     if from_asset_info.equal(&target_asset_info) {
-        let current_amount = query_balance(&deps.querier, env.contract.address.clone(), from_asset_info)?;
+        let current_amount =
+            query_balance(&deps.querier, env.contract.address.clone(), from_asset_info)?;
 
         if current_amount < minimum_receive {
             return Err(StdError::generic_err(format!(
                 "assertion failed; receive amount: {} is lower than minimum amount: {}",
-                current_amount,
-                minimum_receive
+                current_amount, minimum_receive
             )));
         }
     }
-        
+
     let mut step_index = 0;
     let mut messages: Vec<CosmosMsg<TerraMsgWrapper>> = steps
         .into_iter()
@@ -107,7 +131,7 @@ fn execute_strategy(
                         to.to_string()
                     } else {
                         env.contract.address.to_string()
-                    }
+                    },
                 })?,
             }))
         })
@@ -122,7 +146,7 @@ fn execute_strategy(
             receiver: to.to_string(),
             asset_info: target_asset_info,
             initial_balance: receiver_balance,
-            minimum_receive: minimum_receive
+            minimum_receive: minimum_receive,
         })?,
     }));
 
@@ -134,19 +158,27 @@ fn execute_step(
     env: Env,
     info: MessageInfo,
     step: StrategyStep,
-    to: String
+    to: String,
 ) -> StdResult<Response<TerraMsgWrapper>> {
     if env.contract.address != info.sender {
-        return Err(StdError::generic_err(format!("unauthorized step; expected caller: {}, caller: {}", env.contract.address, info.sender)));
+        return Err(StdError::generic_err(format!(
+            "unauthorized step; expected caller: {}, caller: {}",
+            env.contract.address, info.sender
+        )));
     }
 
     let contract_addr = env.contract.address;
 
     let amount = query_balance(&deps.querier, contract_addr, step.get_from_asset())?;
-    let from_asset = Asset { info: step.get_from_asset(), amount: amount };
+    let from_asset = Asset {
+        info: step.get_from_asset(),
+        amount: amount,
+    };
     let to_asset_info = step.get_to_asset();
 
-    let msg = step.operation.create_execution_message(deps.as_ref(), from_asset, to_asset_info, to)?;
+    let msg =
+        step.operation
+            .create_execution_message(deps.as_ref(), from_asset, to_asset_info, to)?;
 
     return Ok(Response::new().add_message(msg));
 }
@@ -157,11 +189,14 @@ fn finalize_strategy(
     info: MessageInfo,
     receiver: Addr,
     target_asset_info: AssetInfo,
-    initial_balance: Uint128, 
-    minimum_receive: Uint128
+    initial_balance: Uint128,
+    minimum_receive: Uint128,
 ) -> StdResult<Response<TerraMsgWrapper>> {
     if env.contract.address != info.sender {
-        return Err(StdError::generic_err(format!("unauthorized finalize; expected caller: {}, caller: {}", env.contract.address, info.sender)));
+        return Err(StdError::generic_err(format!(
+            "unauthorized finalize; expected caller: {}, caller: {}",
+            env.contract.address, info.sender
+        )));
     }
 
     let current_balance = query_balance(&deps.querier, receiver, target_asset_info.clone())?;
@@ -170,26 +205,20 @@ fn finalize_strategy(
     if swap_amount < minimum_receive {
         return Err(StdError::generic_err(format!(
             "assertion failed; minimum receive amount: {}, swap amount: {}",
-            minimum_receive,
-            swap_amount
+            minimum_receive, swap_amount
         )));
     }
 
     Ok(Response::default()
         .add_attribute("initial_balance", initial_balance)
         .add_attribute("final_balance", current_balance)
-        .add_attribute("target_asset", target_asset_info.to_string())
-    )
+        .add_attribute("target_asset", target_asset_info.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps, 
-    _env: Env, 
-    msg: QueryMsg
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config { } => to_binary(&query_config(deps)?)
+        QueryMsg::Config {} => to_binary(&query_config(deps)?),
     }
 }
 

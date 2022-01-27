@@ -7,7 +7,7 @@ use cw_storage_plus::Item;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
     pub owner: Addr,
-    pub comission: i16
+    pub comission: i16,
 }
 
 pub const STATE: Item<State> = Item::new("state");
