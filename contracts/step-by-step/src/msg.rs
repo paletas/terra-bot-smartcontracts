@@ -23,7 +23,7 @@ pub enum ExecuteMsg {
     /* INTERNAL USE ONLY */
     ExecuteStrategyStep {
         step: StrategyStep,
-        to: String,
+        to: Option<String>,
     },
     /* INTERNAL USE ONLY */
     FinalizeStrategy {

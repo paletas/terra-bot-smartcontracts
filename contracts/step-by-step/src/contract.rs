@@ -128,9 +128,9 @@ fn execute_strategy(
                 msg: to_binary(&ExecuteMsg::ExecuteStrategyStep {
                     step: op,
                     to: if step_index == steps_len {
-                        to.to_string()
+                        Some(to.to_string())
                     } else {
-                        env.contract.address.to_string()
+                        None
                     },
                 })?,
             }))
@@ -158,7 +158,7 @@ fn execute_step(
     env: Env,
     info: MessageInfo,
     step: StrategyStep,
-    to: String,
+    to: Option<String>,
 ) -> StdResult<Response<TerraMsgWrapper>> {
     if env.contract.address != info.sender {
         return Err(StdError::generic_err(format!(
@@ -176,11 +176,7 @@ fn execute_step(
     };
     let to_asset_info = step.get_to_asset();
 
-    let msg =
-        step.operation
-            .create_execution_message(deps.as_ref(), from_asset, to_asset_info, to)?;
-
-    return Ok(Response::new().add_message(msg));
+    return step.operation.create_execution_message(deps.as_ref(), from_asset, to_asset_info, to);
 }
 
 fn finalize_strategy(
